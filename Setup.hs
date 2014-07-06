@@ -178,7 +178,7 @@ linkFileU v workingDir src dest = do
       ignoreDoesNotExist e | isDoesNotExistError e = return ()
                            | otherwise             = Ex.throw e
   removeFile (workingDir </> dest) `Ex.catch` ignoreDoesNotExist
-  exitCode <- rawSystemIOWithEnv v "/bin/ln" ["-s", src, dest] (Just workingDir) Nothing Nothing Nothing Nothing
+  exitCode <- rawSystemIOWithEnv v "/usr/bin/env" ["ln", "-s", src, dest] (Just workingDir) Nothing Nothing Nothing Nothing
   when (exitCode /= ExitSuccess) (error  $ "could not create symlink " ++ src ++ " -> " ++ dest ++ " in " ++ workingDir)
 
 -- | replace placeholders in a wrapper script or options file
