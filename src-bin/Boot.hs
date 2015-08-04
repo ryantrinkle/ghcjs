@@ -1082,6 +1082,7 @@ cabalGlobalFlags :: B [Text]
 cabalGlobalFlags = do
   instDir  <- view (beLocations . blGhcjsTopDir)
   return [ "--config-file", toTextI (instDir </> "cabalBootConfig")
+         , "--ignore-sandbox"
          ]
 
 cabalInstallFlags :: Bool -> B [Text]
@@ -1352,7 +1353,7 @@ resolveProgram bs pgm = do
 reportProgramLocation :: BootSettings -> Program a -> IO ()
 reportProgramLocation bs p
   | Just l <- p ^. pgmLoc = msg' bs info ("program " <> p ^. pgmName <> " found at " <> toTextI l)
-  | otherwise             = msg' bs info ("program " <> p ^. pgmName <> " NOT found, searched for" <> p ^. pgmSearch)
+  | otherwise             = msg' bs info ("program " <> p ^. pgmName <> " NOT found, searched for " <> p ^. pgmSearch)
 
 -- | check that the GHC, ghcjs and ghcjs-pkg we're using are the correct version
 checkProgramVersions :: BootSettings -> BootPrograms -> IO BootPrograms
