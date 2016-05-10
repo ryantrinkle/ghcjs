@@ -933,21 +933,13 @@ parsePackageInfo
         -> IO (InstalledPackageInfo, [ValidateWarning])
 parsePackageInfo str =
   case parseInstalledPackageInfo str of
-    ParseOk warnings ok -> return (mungePackageInfo ok, ws)
+    ParseOk warnings ok -> return (ok, ws)
       where
         ws = [ msg | PWarning msg <- warnings
                    , not ("Unrecognized field pkgroot" `isPrefixOf` msg) ]
     ParseFailed err -> case locatedErrorMsg err of
                            (Nothing, s) -> die s
                            (Just l, s) -> die (show l ++ ": " ++ s)
-
-mungePackageInfo :: InstalledPackageInfo -> InstalledPackageInfo
-mungePackageInfo ipi = ipi { packageKey = packageKey' }
-  where
-    packageKey'
-      | OldPackageKey (PackageIdentifier (PackageName "") _) <- packageKey ipi
-          = OldPackageKey (sourcePackageId ipi)
-      | otherwise = packageKey ipi
 
 -- -----------------------------------------------------------------------------
 -- Making changes to a package database
@@ -1024,7 +1016,7 @@ convertPackageInfoToCacheFormat pkg =
        GhcPkg.sourcePackageId    = display (sourcePackageId pkg),
        GhcPkg.packageName        = display (packageName pkg),
        GhcPkg.packageVersion     = packageVersion pkg,
-       GhcPkg.packageKey         = display (packageKey pkg),
+       GhcPkg.packageKey         = compatPackageKey pkg,
        GhcPkg.depends            = map display (depends pkg),
        GhcPkg.importDirs         = importDirs pkg,
        GhcPkg.hsLibraries        = hsLibraries pkg,
@@ -1041,13 +1033,13 @@ convertPackageInfoToCacheFormat pkg =
        GhcPkg.haddockHTMLs       = haddockHTMLs pkg,
        GhcPkg.exposedModules     = map convertExposed (exposedModules pkg),
        GhcPkg.hiddenModules      = hiddenModules pkg,
-       GhcPkg.instantiatedWith   = map convertInst (instantiatedWith pkg),
+       GhcPkg.instantiatedWith   = [],
        GhcPkg.exposed            = exposed pkg,
        GhcPkg.trusted            = trusted pkg
     }
-  where convertExposed (ExposedModule n reexport sig) =
+  where convertExposed (ExposedModule n reexport) =
             GhcPkg.ExposedModule n (fmap convertOriginal reexport)
-                                   (fmap convertOriginal sig)
+                                   Nothing
         convertOriginal (OriginalModule ipid m) =
             GhcPkg.OriginalModule (display ipid) m
         convertInst (m, o) = (m, convertOriginal o)
@@ -1097,9 +1089,9 @@ modifyPackage fn pkgarg verbosity my_flags force = do
       db_name = location db
       pkgs    = packages db
 
-      pks = map packageKey ps
+      pks = map compatPackageKey ps
 
-      cmds = [ fn pkg | pkg <- pkgs, packageKey pkg `elem` pks ]
+      cmds = [ fn pkg | pkg <- pkgs, compatPackageKey pkg `elem` pks ]
       new_db = updateInternalDB db cmds
 
       -- ...but do consistency checks with regards to the full stack
@@ -1107,14 +1099,14 @@ modifyPackage fn pkgarg verbosity my_flags force = do
       rest_of_stack = filter ((/= db_name) . location) db_stack
       new_stack = new_db : rest_of_stack
       new_broken = brokenPackages (allPackagesInStack new_stack)
-      newly_broken = filter ((`notElem` map packageKey old_broken)
-                            . packageKey) new_broken
+      newly_broken = filter ((`notElem` map compatPackageKey old_broken)
+                            . compatPackageKey) new_broken
   --
   let displayQualPkgId pkg
         | [_] <- filter ((== pkgid) . sourcePackageId)
                         (allPackagesInStack db_stack)
             = display pkgid
-        | otherwise = display pkgid ++ "@" ++ display (packageKey pkg)
+        | otherwise = display pkgid ++ "@" ++ compatPackageKey pkg
         where pkgid = sourcePackageId pkg
   when (not (null newly_broken)) $
       dieOrForceAll force ("unregistering would break the following packages: "
@@ -1165,7 +1157,7 @@ listPackages verbosity my_flags mPackageName mModuleName = do
                         EQ -> case pkgVersion p1 `compare` pkgVersion p2 of
                                 LT -> LT
                                 GT -> GT
-                                EQ -> packageKey pkg1 `compare` packageKey pkg2
+                                EQ -> compatPackageKey pkg1 `compare` compatPackageKey pkg2
                    where (p1,p2) = (sourcePackageId pkg1, sourcePackageId pkg2)
 
       stack = reverse db_stack_sorted
@@ -1173,7 +1165,7 @@ listPackages verbosity my_flags mPackageName mModuleName = do
       match `exposedInPkg` pkg = any match (map display $ exposedModules pkg)
 
       pkg_map = allPackagesInStack db_stack
-      broken = map packageKey (brokenPackages pkg_map)
+      broken = map compatPackageKey (brokenPackages pkg_map)
 
       show_normal PackageDB{ location = db_name, packages = pkg_confs } =
           do hPutStrLn stdout (db_name ++ ":")
@@ -1184,13 +1176,13 @@ listPackages verbosity my_flags mPackageName mModuleName = do
                  -- Sort using instance Ord PackageId
                  pp_pkgs = map pp_pkg . sortBy (comparing installedPackageId) $ pkg_confs
                  pp_pkg p
-                   | packageKey p `elem` broken = printf "{%s}" doc
+                   | compatPackageKey p `elem` broken = printf "{%s}" doc
                    | exposed p = doc
                    | otherwise = printf "(%s)" doc
                    where doc | verbosity >= Verbose = printf "%s (%s)" pkg ipid
                              | otherwise            = pkg
                           where
-                          InstalledPackageId ipid = installedPackageId p
+                          SimpleUnitId (ComponentId ipid) = installedPackageId p
                           pkg = display (sourcePackageId p)
 
       show_simple = simplePackageList my_flags . allPackagesInStack
@@ -1211,7 +1203,7 @@ listPackages verbosity my_flags mPackageName mModuleName = do
                   map (termText "   " <#>) (map pp_pkg (packages db)))
           where
                    pp_pkg p
-                     | packageKey p `elem` broken = withF Red  doc
+                     | compatPackageKey p `elem` broken = withF Red  doc
                      | exposed p                       = doc
                      | otherwise                       = withF Blue doc
                      where doc | verbosity >= Verbose
@@ -1219,7 +1211,7 @@ listPackages verbosity my_flags mPackageName mModuleName = do
                                | otherwise
                                = termText pkg
                             where
-                            InstalledPackageId ipid = installedPackageId p
+                            SimpleUnitId (ComponentId ipid) = installedPackageId p
                             pkg = display (sourcePackageId p)
 
     is_tty <- hIsTerminalDevice stdout
@@ -1543,7 +1535,7 @@ checkPackageConfig pkg verbosity db_stack auto_ghci_libs
 checkInstalledPackageId :: InstalledPackageInfo -> PackageDBStack -> Bool 
                         -> Validate ()
 checkInstalledPackageId ipi db_stack update = do
-  let ipid@(InstalledPackageId str) = installedPackageId ipi
+  let ipid@(SimpleUnitId (ComponentId str)) = installedPackageId ipi
   when (null str) $ verror CannotForce "missing id field"
   let dups = [ p | p <- allPackagesInStack db_stack, 
                    installedPackageId p == ipid ]
@@ -1566,8 +1558,8 @@ checkPackageId ipi =
 
 checkPackageKey :: InstalledPackageInfo -> Validate ()
 checkPackageKey ipi =
-  let str = display (packageKey ipi) in
-  case [ x :: PackageKey | (x,ys) <- readP_to_S parse str, all isSpace ys ] of
+  let str = compatPackageKey ipi in
+  case [ x :: ComponentId | (x,ys) <- readP_to_S parse str, all isSpace ys ] of
     [_] -> return ()
     []  -> verror CannotForce ("invalid package key: " ++ str)
     _   -> verror CannotForce ("ambiguous package key: " ++ str)
@@ -1679,7 +1671,7 @@ checkExposedModules :: PackageDBStack -> InstalledPackageInfo -> Validate ()
 checkExposedModules db_stack pkg =
   mapM_ checkExposedModule (exposedModules pkg)
   where
-    checkExposedModule (ExposedModule modl reexport _sig) = do
+    checkExposedModule (ExposedModule modl reexport) = do
       let checkOriginal = checkModuleFile pkg modl
           checkReexport = checkOriginalModule "module reexport" db_stack pkg
       maybe checkOriginal checkReexport reexport
