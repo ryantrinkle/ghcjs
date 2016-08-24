@@ -174,7 +174,7 @@ link' :: DynFlags
 link' dflags env settings target pkgs objFiles jsFiles isRootFun extraStaticDeps = do
       (objDepsMap, objRequiredUnits) <- loadObjDeps objFiles
       let rootSelector | Just baseMod <- gsGenBase settings =
-                           \(Fun p m s) -> m == T.pack baseMod
+                           \(Fun _ m _) -> m == T.pack baseMod
                        | otherwise = isRootFun
           roots = S.fromList . filter rootSelector $
             concatMap (M.keys . depsHaskellExported . fst) (M.elems objDepsMap)
@@ -189,14 +189,10 @@ link' dflags env settings target pkgs objFiles jsFiles isRootFun extraStaticDeps
         BaseFile file -> Compactor.loadBase file
         BaseState b   -> return b
       (rdPkgs, rds) <- rtsDeps dflags
-      c   <- newMVar M.empty
       let rtsPkgs     =  map stringToPackageKey
                              ["@rts", "@rts_" ++ rtsBuildTag dflags]
           pkgs'       = nub (rtsPkgs ++ rdPkgs ++ reverse objPkgs ++ reverse pkgs)
           pkgs''      = filter (not . (isAlreadyLinked base)) pkgs'
-          pkgLibPaths = mkPkgLibPaths pkgs'
-          getPkgLibPaths :: PackageKey -> ([FilePath],[String])
-          getPkgLibPaths k = fromMaybe ([],[]) (lookup k pkgLibPaths)
       (archsDepsMap, archsRequiredUnits) <- loadArchiveDeps env =<<
           getPackageArchives dflags (map snd $ mkPkgLibPaths pkgs')
       pkgArchs <- getPackageArchives dflags (map snd $ mkPkgLibPaths pkgs'')
@@ -408,7 +404,7 @@ getDeps lookup base fun startlu = go' S.empty (S.fromList startlu) (S.toList fun
         let key = (funPackage f, funModule f)
         in  case M.lookup key lookup of
               Nothing -> error ("getDeps.go': object file not loaded for:  " ++ show key)
-              Just (Deps p m _r e b) ->
+              Just (Deps _ _ _r e _) ->
                  let lun :: Int
                      lun = fromMaybe (error $ "exported function not found: " ++ show f)
                                      (M.lookup f e)
@@ -441,7 +437,7 @@ collectDeps dflags lookup packages base roots units = do
       unitsByModule = M.fromListWith IS.union $
                       map (\(p,m,n) -> ((p,m),IS.singleton n)) (S.toList allDeps)
       lookupByPkg :: Map Package [(Deps, DepsLocation)]
-      lookupByPkg = M.fromListWith (++) (map (\((p,m),v) -> (p,[v])) (M.toList lookup))
+      lookupByPkg = M.fromListWith (++) (map (\((p,_),v) -> (p,[v])) (M.toList lookup))
   code <- fmap (catMaybes . concat) . forM packages' $ \pkg -> do
     mapM (uncurry $ extractDeps unitsByModule)
          (fromMaybe [] $ M.lookup (mkPackage pkg) lookupByPkg)
@@ -546,7 +542,7 @@ readSystemDeps dflags depsName requiredFor file = do
     Right sdeps ->
       let (StaticDeps unresolved, pkgs, funs) = staticDeps dflags wi sdeps
       in  case unresolved of
-            xs@((p,_,_):_) -> do
+            ((p,_,_):_) -> do
                   error ( "Package `" ++ T.unpack p ++ "' is required for " ++
                           requiredFor ++ ", but was not found")
             _ -> return (pkgs, funs)
@@ -557,7 +553,7 @@ readSystemWiredIn :: DynFlags -> IO [(Text, PackageKey)]
 readSystemWiredIn dflags = do
   b <- B.readFile filename
   case Yaml.decodeEither b of
-     Left err -> error $ "could not read wired-in package keys from " ++ filename
+     Left _ -> error $ "could not read wired-in package keys from " ++ filename
      Right m  -> return . M.toList
                         . M.union ghcWiredIn -- GHC wired-in package keys override those in the file
                         . fmap stringToPackageKey $ m
