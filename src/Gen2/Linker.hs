@@ -15,10 +15,9 @@ module Gen2.Linker where
 
 import           DynFlags
 import           Encoding
-import           Panic
 #if __GLASGOW_HASKELL__ >= 711
 import           Module (mkModuleName, wiredInUnitIds)
-import           PackageConfig (sourcePackageId, unitId)
+import           PackageConfig (unitId)
 #elif __GLASGOW_HASKELL__ >= 709
 import           Module (mkModuleName, wiredInPackageKeys)
 import           PackageConfig (sourcePackageId, packageKey)
@@ -31,31 +30,25 @@ import           Data.Maybe (listToMaybe)
 import           Distribution.Package (InstalledPackageId(..))
 #endif
 import           Module (moduleNameString)
-import           Outputable (ppr, showSDoc)
 import qualified Packages
-import qualified SysTools
 
-import           Control.Applicative
 import           Control.Concurrent.MVar
 import           Control.DeepSeq
 import           Control.Exception        (evaluate)
-import           Control.Lens             hiding ((<.>))
 import           Control.Monad
 import           Control.Parallel.Strategies
 
 import           Data.Array
 import           Data.Binary
-import           Data.ByteString          (ByteString)
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Lazy     as BL
-import           Data.Char                (toLower, chr)
 import           Data.Function            (on)
 import qualified Data.HashMap.Strict      as HM
 import           Data.Int
 import           Data.IntSet              (IntSet)
 import qualified Data.IntSet              as IS
 import           Data.List
-  (partition, nub, foldl', intercalate, group, sort, groupBy, find)
+  (partition, nub, foldl', intercalate, group, sort, groupBy)
 import           Data.Map.Strict          (Map)
 import qualified Data.Map.Strict          as M
 import           Data.Maybe
@@ -64,7 +57,6 @@ import           Data.Set                 (Set)
 import qualified Data.Set                 as S
 import           Data.Text                (Text)
 import qualified Data.Text                as T
-import qualified Data.Text.IO             as T
 import qualified Data.Text.Lazy           as TL
 import qualified Data.Text.Lazy.IO        as TL
 import qualified Data.Text.Lazy.Encoding  as TLE
@@ -75,16 +67,14 @@ import qualified Data.Yaml                as Yaml
 
 import qualified Distribution.Simple.Utils as Cabal
 
-import           Numeric                  (showOct)
-
 import           GHC.Generics
 
 import           System.FilePath
-  (splitPath, (<.>), (</>), dropExtension, takeExtension)
+  (splitPath, (<.>), (</>), dropExtension)
 
 import           System.Directory
-  (createDirectoryIfMissing, doesDirectoryExist, canonicalizePath
-  ,doesFileExist, getDirectoryContents, getCurrentDirectory, copyFile)
+  (createDirectoryIfMissing, canonicalizePath
+  ,doesFileExist, getCurrentDirectory)
 import           Text.PrettyPrint.Leijen.Text (displayT, renderPretty)
 
 import           Compiler.Compat
@@ -102,7 +92,6 @@ import           Gen2.Printer             (pretty)
 import           Gen2.Rts                 (rtsText, rtsDeclsText)
 import           Gen2.RtsTypes
 import           Gen2.Shim
-import           System.Exit (exitFailure)
 
 type LinkableUnit = (Package, Module, Int) -- ^ module and the index of the block in the object file
 type Module       = Text
