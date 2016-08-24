@@ -284,7 +284,6 @@ linkTh env settings js_files dflags pkgs hpt code = do
                              env
                              settings
                              "Template Haskell"
-                             []
                              pkgs'
                              obj_files
                              js_files

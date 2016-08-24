@@ -118,18 +118,17 @@ link :: DynFlags
      -> GhcjsEnv
      -> GhcjsSettings
      -> FilePath                   -- ^ output file/directory
-     -> [FilePath]                 -- ^ include path for home package
      -> [PackageKey]               -- ^ packages to link
      -> [LinkedObj]                -- ^ the object files we're linking
      -> [FilePath]                 -- ^ extra js files to include
      -> (Fun -> Bool)              -- ^ functions from the objects to use as roots (include all their deps)
      -> Set Fun                    -- ^ extra symbols to link in
      -> IO ()
-link dflags env settings out include pkgs objFiles jsFiles isRootFun extraStaticDeps
+link dflags env settings out pkgs objFiles jsFiles isRootFun extraStaticDeps
   | gsNoJSExecutables settings = return ()
   | otherwise = do
       LinkResult lo lstats lmetasize llW lla llarch lbase <-
-        link' dflags env settings out include pkgs objFiles jsFiles
+        link' dflags env settings out pkgs objFiles jsFiles
               isRootFun extraStaticDeps
       let genBase = isJust (gsGenBase settings)
           jsExt | genBase   = "base.js"
@@ -166,14 +165,13 @@ link' :: DynFlags
       -> GhcjsEnv
       -> GhcjsSettings
       -> String                     -- ^ target (for progress message)
-      -> [FilePath]                 -- ^ include path for home package
       -> [PackageKey]               -- ^ packages to link
       -> [LinkedObj]                -- ^ the object files we're linking
       -> [FilePath]                 -- ^ extra js files to include
       -> (Fun -> Bool)              -- ^ functions from the objects to use as roots (include all their deps)
       -> Set Fun                    -- ^ extra symbols to link in
       -> IO LinkResult
-link' dflags env settings target include pkgs objFiles jsFiles isRootFun extraStaticDeps = do
+link' dflags env settings target pkgs objFiles jsFiles isRootFun extraStaticDeps = do
       (objDepsMap, objRequiredUnits) <- loadObjDeps objFiles
       let rootSelector | Just baseMod <- gsGenBase settings =
                            \(Fun p m s) -> m == T.pack baseMod

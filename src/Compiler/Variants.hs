@@ -30,7 +30,6 @@ data Variant = Variant
                                -> GhcjsEnv
                                -> GhcjsSettings
                                -> FilePath                     -- output directory
-                               -> [FilePath]                   -- include paths for home package
                                -> [PackageKey]                 -- dependencies
                                -> [LinkedObj]                  -- object files
                                -> [FilePath]                   -- extra JavaScript files

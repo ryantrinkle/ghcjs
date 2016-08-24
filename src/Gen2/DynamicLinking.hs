@@ -151,7 +151,7 @@ ghcjsLinkJsBinary :: GhcjsEnv
                   -> [PackageKey]
                   -> IO ()
 ghcjsLinkJsBinary env settings jsFiles dflags objs dep_pkgs =
-  void $ variantLink gen2Variant dflags env settings exe [] dep_pkgs objs' jsFiles isRoot S.empty
+  void $ variantLink gen2Variant dflags env settings exe dep_pkgs objs' jsFiles isRoot S.empty
     where
       objs'    = map ObjFile objs
       isRoot _ = True
