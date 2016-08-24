@@ -197,8 +197,7 @@ link' dflags env settings target pkgs objFiles jsFiles isRootFun extraStaticDeps
           getPackageArchives dflags (map snd $ mkPkgLibPaths pkgs')
       pkgArchs <- getPackageArchives dflags (map snd $ mkPkgLibPaths pkgs'')
       (allDeps, code) <-
-        collectDeps dflags
-                    (objDepsMap `M.union` archsDepsMap)
+        collectDeps (objDepsMap `M.union` archsDepsMap)
                     (pkgs' ++ [thisPackage dflags])
                     (baseUnits base)
                     (roots `S.union` rds `S.union` extraStaticDeps)
@@ -420,8 +419,7 @@ getDeps lookup base fun startlu = go' S.empty (S.fromList startlu) (S.toList fun
       in  open `S.union` (S.fromList $ filter (not . alreadyLinked) newUnits)
 
 -- | collect dependencies for a set of roots
-collectDeps :: DynFlags
-            -> Map (Package, Module) (Deps, DepsLocation)
+collectDeps :: Map (Package, Module) (Deps, DepsLocation)
             -> [PackageKey]     -- ^ packages, code linked in this order
             -> Set LinkableUnit -- ^ do not include these
             -> Set Fun -- ^ roots
@@ -429,7 +427,7 @@ collectDeps :: DynFlags
             -> IO ( Set LinkableUnit
                   , [(Package, Module, JStat, [ClosureInfo], [StaticInfo])]
                   )
-collectDeps dflags lookup packages base roots units = do
+collectDeps lookup packages base roots units = do
   allDeps <- getDeps (fmap fst lookup) base roots units
   -- read ghc-prim first, since we depend on that for static initialization
   let packages' = uncurry (++) $ partition (==primPackageKey) (nub packages)
