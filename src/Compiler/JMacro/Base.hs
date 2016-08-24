@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, UndecidableInstances, OverlappingInstances, OverloadedStrings, TypeFamilies, RankNTypes, DeriveDataTypeable, StandaloneDeriving, FlexibleContexts, TypeSynonymInstances, ScopedTypeVariables, GADTs, GeneralizedNewtypeDeriving, BangPatterns, DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances, UndecidableInstances, OverloadedStrings, TypeFamilies, RankNTypes, DeriveDataTypeable, StandaloneDeriving, FlexibleContexts, TypeSynonymInstances, ScopedTypeVariables, GADTs, GeneralizedNewtypeDeriving, BangPatterns, DeriveGeneric #-}
 
 -----------------------------------------------------------------------------
 {- |
