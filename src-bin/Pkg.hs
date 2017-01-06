@@ -1114,6 +1114,9 @@ convertPackageInfoToCacheFormat pkg =
        GhcPkg.extraLibraries     = extraLibraries pkg,
        GhcPkg.extraGHCiLibraries = extraGHCiLibraries pkg,
        GhcPkg.libraryDirs        = libraryDirs pkg,
+#if MIN_VERSION_Cabal(1,24,1)
+       GhcPkg.libraryDynDirs     = libraryDynDirs pkg,
+#endif
        GhcPkg.frameworks         = frameworks pkg,
        GhcPkg.frameworkDirs      = frameworkDirs pkg,
        GhcPkg.ldOptions          = ldOptions pkg,
